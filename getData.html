@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ThingSpeak Multi-Channel Data Graphs</title>
+    <!-- Include Highcharts library from a CDN -->
+    <script src="code.highcharts.com"></script>
+    <script src="code.jquery.com"></script>
+</head>
+<body>
+    <h1>ThingSpeak Channel Data Comparison</h1>
+    
+    <!-- Container for the first graph (e.g., Field 1) -->
+    <div id="chart-container-field1" style="width: 100%; height: 400px;"></div>
+    
+    <!-- Container for the second graph (e.g., Field 2) -->
+    <div id="chart-container-field2" style="width: 100%; height: 400px;"></div>
+
+    <script>
+        // --- Configuration ---
+        const CHANNEL_ID_1 = 3028067; // Replace with your first channel ID
+        const CHANNEL_ID_2 = 3028069; // Replace with your second channel ID
+        const FIELD_ID_1 = 1; // Replace with your first field number (e.g., 1 for Field 1)
+        const FIELD_ID_2 = 7; // Replace with your second field number (e.g., 2 for Field 2)
+        const READ_API_KEY_1 = ''; // Optional: Enter if channel 1 is private
+        const READ_API_KEY_2 = ''; // Optional: Enter if channel 2 is private
+        const RESULTS_COUNT = 20; // Number of data points to retrieve
+
+        // Function to fetch data from a channel and field
+        function fetchThingSpeakData(channelId, fieldId, apiKey, results) {
+            let url = `api.thingspeak.com{channelId}/fields/${fieldId}.json?results=${results}`;
+            if (apiKey) {
+                url += `&api_key=${apiKey}`;
+            }
+            return fetch(url).then(response => response.json());
+        }
+
+        // Function to process data for Highcharts
+        function processData(feeds) {
+            return feeds.map(feed => {
+                const timestamp = new Date(feed.created_at).getTime();
+                const value = parseFloat(feed[`field${FIELD_ID_1}`] || feed[`field${FIELD_ID_2}`]);
+                return [timestamp, value];
+            });
+        }
+
+        // Function to create a Highcharts graph
+        function createChart(containerId, titleText, seriesData) {
+            Highcharts.chart(containerId, {
+                chart: {
+                    type: 'line',
+                    zoomType: 'x'
+                },
+                title: {
+                    text: titleText
+                },
+                xAxis: {
+                    type: 'datetime',
+                    title: {
+                        text: 'Time'
+                    }
+                },
+                yAxis: {
+                    title: {
+                        text: 'Value'
+                    }
+                },
+                series: seriesData
+            });
+        }
+
+        // Main function to load and graph all data
+        async function loadAllData() {
+            try {
+                // Fetch data for Field 1 from both channels
+                const data1_c1 = await fetchThingSpeakData(CHANNEL_ID_1, FIELD_ID_1, READ_API_KEY_1, RESULTS_COUNT);
+                const data1_c2 = await fetchThingSpeakData(CHANNEL_ID_2, FIELD_ID_1, READ_API_KEY_2, RESULTS_COUNT);
+                
+                const series1_c1 = { name: `Channel ${CHANNEL_ID_1} - Field ${FIELD_ID_1}`, data: processData(data1_c1.feeds) };
+                const series1_c2 = { name: `Channel ${CHANNEL_ID_2} - Field ${FIELD_ID_1}`, data: processData(data1_c2.feeds) };
+
+                // Graph Field 1 data
+                createChart('chart-container-field1', `Data for Field ${FIELD_ID_1}`, [series1_c1, series1_c2]);
+
+
+                // Fetch data for Field 2 from both channels (adjust FIELD_ID_2 if needed)
+                const data2_c1 = await fetchThingSpeakData(CHANNEL_ID_1, FIELD_ID_2, READ_API_KEY_1, RESULTS_COUNT);
+                const data2_c2 = await fetchThingSpeakData(CHANNEL_ID_2, FIELD_ID_2, READ_API_KEY_2, RESULTS_COUNT);
+                
+                const series2_c1 = { name: `Channel ${CHANNEL_ID_1} - Field ${FIELD_ID_2}`, data: processData(data2_c1.feeds) };
+                const series2_c2 = { name: `Channel ${CHANNEL_ID_2} - Field ${FIELD_ID_2}`, data: processData(data2_c2.feeds) };
+
+                // Graph Field 2 data
+                createChart('chart-container-field2', `Data for Field ${FIELD_ID_2}`, [series2_c1, series2_c2]);
+
+            } catch (error) {
+                console.error("Error fetching ThingSpeak data:", error);
+                document.getElementById('chart-container-field1').innerHTML = '<p>Error loading charts. Check console for details.</p>';
+                document.getElementById('chart-container-field2').innerHTML = '<p>Error loading charts. Check console for details.</p>';
+            }
+        }
+
+        // Load data when the page loads
+        document.addEventListener('DOMContentLoaded', loadAllData);
+    </script>
+
+</body>
+</html>
